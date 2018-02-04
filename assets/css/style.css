@@ -1,0 +1,45 @@
+header {
+	height: 75px;
+	line-height: 75px;
+	background-color: lightgrey;
+	text-align: center;
+	width: 100%;
+	font-size: 26px;
+	font-weight: bold;
+}
+
+th[scope="col"] {
+	font-weight: bold;
+}
+
+form {
+	width: 100%;
+	border: 1px solid lightgrey;
+	padding: 25px;
+}
+
+#form-heading {
+	font-weight: bold;
+	margin-bottom: 15px;
+	padding-bottom: 5px;
+	border-bottom: 1px solid lightgrey;
+}
+
+
+/* new breakpoints for container */
+@media (min-width: 768px) {
+	.container {
+	    width: 568px;
+	}
+}
+@media (min-width: 992px) {
+	.container {
+	    width: 792px;
+	}
+}
+@media (min-width: 1200px) {
+	.container {
+	    width: 1000px;
+	}
+}
+

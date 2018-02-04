@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>Bhaskar's Train Scheduler</title>
+	<!-- Reset stylesheet -->
+	<link rel='stylesheet' href='assets/css/reset.css' type='text/css'>
+	<!-- Bootstrap stylesheet -->
+	<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-alpha.6/css/bootstrap.min.css" integrity="sha384-rwoIResjU2yc3z8GV/NPeZWAv56rSmLldC3R/AZzGRnGxQQKnKkoFVhFQhNUwEyJ" crossorigin="anonymous">
+	<!-- Main stylesheet -->
+	<link rel='stylesheet' href='assets/css/style.css' type='text/css'>
+	<!-- JQuery -->
+ 	<script src='https://cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js'></script>
+	<!-- Bootstrap JS -->
+	<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+ 	<!-- Moment JS -->
+ 	<script src='https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js'></script>
+	<!-- Firebase -->
+	<script src="https://www.gstatic.com/firebasejs/4.9.0/firebase.js"></script>
+</head>
+<body>
+	
+	<div class="container">
+		<!-- Header -->
+		<div class="row">
+			<header>Train Scheduler</header>
+		</div>
+		<!-- Time Table -->
+		<div class="row">
+			<table class="table table-striped">
+			  <thead>
+			    <tr>
+			      <th scope="col">Train name</th>
+			      <th scope="col">Destination</th>
+			      <th scope="col">Frequency (min)</th>
+			      <th scope="col">Next arrival</th>
+			      <th scope="col">Minutes away</th>
+			    </tr>
+			  </thead>
+			  <tbody>
+			  </tbody>
+			</table>
+		</div>
+		<!-- Input Form -->
+		<div class="row">
+			<form>
+			<div id="form-heading">Add a new train</div>
+		  <div class="form-group">
+		    <label>Train Name</label>
+		    <input type="train-name" class="form-control" placeholder="Enter train name">
+		  </div>
+		  <div class="form-group">
+		    <label>Destination</label>
+		    <input type="destination" class="form-control" placeholder="Enter destination">
+		  </div>
+		  <div class="form-group">
+		    <label>First Train Time (HH:mm)</label>
+		    <input type="first-train-time" class="form-control" placeholder="Enter time of first train">
+		  </div>
+		  <div class="form-group">
+		    <label>Frequency (min)</label>
+		    <input type="frequency" class="form-control" placeholder="Enter train frequency">
+		  </div>
+		  <button type="submit" class="btn btn-primary">Submit</button>
+			</form>
+		</div>
+
+	</div>
+
+	<script type='text/javascript'>
+
+		var database;
+
+		function initFirebase() {
+			// Initialize Firebase
+		  var config = {
+		    apiKey: "AIzaSyDgQ0goi-FNn-gpFaPKEet4pKNrEJ4fYtY",
+		    authDomain: "train-scheduler-f649d.firebaseapp.com",
+		    databaseURL: "https://train-scheduler-f649d.firebaseio.com",
+		    projectId: "train-scheduler-f649d",
+		    storageBucket: "",
+		    messagingSenderId: "936502523214"
+		  };
+		  firebase.initializeApp(config);
+		  database = firebase.database();
+		}
+
+		function addTrain(name,destination,frequency,nextArrival,minutesAway) {
+			var trainsRef = database.ref('trains/');
+			var newKey = trainsRef.push().key;
+			trainsRef.child(newKey).set({
+				name: name,
+				destination: destination,
+				frequency: frequency,
+				nextArrival: nextArrival,
+				minutesAway: minutesAway,
+			});
+		}
+
+		function getNextArrival(firstTime,frequency) {
+			var firstTrainTime = moment(firstTime,'HH:mm');
+			var nextArrival = firstTrainTime.clone();
+			// determine the next arrival time by adding or subtracting train frequency
+			if (moment() > nextArrival) {
+				while(nextArrival < moment()) {
+					nextArrival.add(frequency,'minutes');
+				}
+			} else {
+				while (nextArrival > moment()) {
+					nextArrival.subtract(frequency,'minutes');
+				}
+			nextArrival.add(frequency,'minutes');
+			}
+			// return the next arrival time, and minutes to next arrival
+			return [nextArrival.format('hh:mm A'), nextArrival.diff(moment(),'minutes').toString()]
+		}
+
+		// display the current trains in the database & compute next arrival time and minutes to next arrival
+		function displayTrains() {
+			// query the trains in the database
+			var trainsRef = database.ref('trains/');
+			trainsRef.once('value').then(function(snapshot) {
+				var trains = snapshot.val();
+				// sort trains by those arriving first
+				var trainsArray = [];
+				if(trains) {
+					Object.keys(trains).forEach(function(key) {
+						trainsArray.push([key,parseInt(trains[key].minutesAway)]);
+					});
+					trainsArray.sort((a,b) => a[1]-b[1]);
+					// for sorted trains, create a table row of train stats and append to table body
+					trainsArray.forEach(function(train) {
+						var key = train[0];
+						var name = $(`<th scope='row'></th>`).text(trains[key].name);
+						var dest = $(`<td></td>`).text(trains[key].destination);
+						var freq = $(`<td></td>`).text(trains[key].frequency);
+						var nextArrival = $(`<td></td>`).text(trains[key].nextArrival);
+						var minsAway = $(`<td></td>`).text(trains[key].minutesAway);
+						var tableRow = $(`<tr></tr>`).append([name,dest,freq,nextArrival,minsAway]);
+						$('tbody').append(tableRow);
+					})
+				}
+			});
+		}
+
+		// add new trains submitted via the input form to the database
+		function newTrainListener() {
+			$('button[type=submit]').on('click',function(e) {
+				// get train parameters from user input
+				var trainName = $('input[type=train-name]').val();
+				var trainDest = $('input[type=destination]').val();
+				var firstTime = $('input[type=first-train-time]').val();
+				var trainFreq = $('input[type=frequency]').val();
+				// compute the next arrival and minutes to next arrival
+				[nextArrival,minutesAway] = getNextArrival(firstTime, trainFreq);
+				// store the train stats in Firebase and display the train!
+				addTrain(trainName,trainDest,trainFreq,nextArrival,minutesAway);
+			})
+		}
+
+		function init() {
+			// initialize firebase connection
+			initFirebase();
+			// display the current trains in the database and new ones that are added
+			displayTrains();
+			// add new trains that are submitted to the database
+			newTrainListener();
+		}
+
+		init();
+
+
+	</script>
+</body>
+</html>
